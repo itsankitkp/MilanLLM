@@ -21,6 +21,15 @@ numpy = lambda x, *args, **kwargs: x.detach().numpy(*args, **kwargs)
 size = lambda x, *args, **kwargs: x.numel(*args, **kwargs)
 reshape = lambda x, *args, **kwargs: x.reshape(*args, **kwargs)
 to = lambda x, *args, **kwargs: x.to(*args, **kwargs)
+reduce_sum = lambda x, *args, **kwargs: x.sum(*args, **kwargs)
+argmax = lambda x, *args, **kwargs: x.argmax(*args, **kwargs)
+astype = lambda x, *args, **kwargs: x.type(*args, **kwargs)
+transpose = lambda x, *args, **kwargs: x.t(*args, **kwargs)
+reduce_mean = lambda x, *args, **kwargs: x.mean(*args, **kwargs)
+expand_dims = lambda x, *args, **kwargs: x.unsqueeze(*args, **kwargs)
+swapaxes = lambda x, *args, **kwargs: x.swapaxes(*args, **kwargs)
+repeat = lambda x, *args, **kwargs: x.repeat(*args, **kwargs)
+
 
 class ProgressBoard():
 
@@ -221,7 +230,7 @@ class Trainer():
                 self.model.validation_step(self.prepare_batch(batch))
             self.val_batch_idx += 1
 
-    def __init__(self, max_epochs, num_gpus=0, gradient_clip_val=0):
+    def __init__(self, max_epochs, num_gpus=1, gradient_clip_val=0):
         """Defined in :numref:`sec_use_gpu`"""
         self.max_epochs = max_epochs
         self.gradient_clip_val = gradient_clip_val
@@ -231,6 +240,7 @@ class Trainer():
 
     def prepare_batch(self, batch):
         """Defined in :numref:`sec_use_gpu`"""
+
         if self.gpus:
             batch = [to(a, self.gpus[0]) for a in batch]
         return batch

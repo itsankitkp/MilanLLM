@@ -76,5 +76,10 @@ def get_corpus(topic)->str:
     return corpus
 
 def write_to_disk(corpus, fname='corpus.txt'):
-    with open(fname,'w+') as f:
+    with open(fname,'w+', encoding='utf-8') as f:
         f.write(corpus)
+
+def get_corpus_from_disk(fname='corpus.txt')->str:
+    with open(fname,'r',encoding='utf-8') as f:
+        corpus = f.read()
+    return corpus

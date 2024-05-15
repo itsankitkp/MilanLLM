@@ -119,8 +119,8 @@ def lstm_main():
 
 def gru_main():
     data = TimeMachine(batch_size=1024, num_steps=32)
-    gru = GRU(num_inputs=len(data.vocab), num_hiddens=32, num_layers=2)
-    model = TimeMachineLLM(gru, len(data.vocab), lr=1)
-    trainer = Trainer(max_epochs=100)
+    gru = GRU(num_inputs=len(data.vocab), num_hiddens=128, num_layers=16)
+    model = TimeMachineLLM(gru, len(data.vocab), lr=0.2)
+    trainer = Trainer(max_epochs=25)
     trainer.fit(model, data)
     return model, data

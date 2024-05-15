@@ -83,3 +83,9 @@ def get_corpus_from_disk(fname='corpus.txt')->str:
     with open(fname,'r',encoding='utf-8') as f:
         corpus = f.read()
     return corpus
+
+
+def read_file(fname='corpus.txt')->str:
+    with open(fname,'r',encoding='utf-8') as f:
+        txt = f.read()
+    return txt

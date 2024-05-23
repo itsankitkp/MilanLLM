@@ -1,7 +1,9 @@
+from ..core.utils import bleu, try_gpu
 from ..data_store.fetch import *
 from ..text.vocab import *
 from ..core.base import *
-from ..models.core import Classifier
+from ..models.core import *
+from ..core.utils import *
 from torch.nn import functional as F
 
 
@@ -69,7 +71,7 @@ class MTEngHin(DataModule):
                 break
             parts = line.split("\t")
 
-                # Skip empty tokens
+            # Skip empty tokens
             src.append([t for t in f"{parts[0]} <eos>".split(" ") if t])
             tgt.append([t for t in f"{parts[1]} <eos>".split(" ") if t])
         return src, tgt
@@ -77,10 +79,78 @@ class MTEngHin(DataModule):
     def get_dataloader(self, train):
         idx = slice(0, self.num_train) if train else slice(self.num_train, None)
         return self.get_tensorloader(self.arrays, train, self.batch_size, idx)
-    
+
     def build(self, src_sentences, tgt_sentences):
-        raw_text = '\n'.join([src + '\t' + tgt for src, tgt in zip(
-        src_sentences, tgt_sentences)])
+        raw_text = "\n".join(
+            [src + "\t" + tgt for src, tgt in zip(src_sentences, tgt_sentences)]
+        )
 
         arrays, _, _ = self._build_arrays(raw_text, self.src_vocab, self.tgt_vocab)
         return arrays
+
+
+def nexa():
+    data = MTEngHin(batch_size=128)
+    embed_size, num_hiddens, num_layers, dropout = 256, 256, 2, 0.2
+    encoder = Seq2SeqEncoder(
+        len(data.src_vocab), embed_size, num_hiddens, num_layers, dropout
+    )
+    decoder = Seq2SeqDecoder(
+        len(data.tgt_vocab), embed_size, num_hiddens, num_layers, dropout
+    )
+    model = Seq2Seq(encoder, decoder, tgt_pad=data.tgt_vocab["<pad>"], lr=0.005)
+    trainer = Trainer(max_epochs=30, gradient_clip_val=1)
+    trainer.fit(model, data)
+
+    engs = ["I forgot.", "Let him in.", "Unbelievable!", "This is my dog."]
+    hindi = ["मैं भूल गया।", "उसे अंदर भेजो।", "अविश्वसनीय!", "यह मेरा कुत्ता है।"]
+    preds, _ = model.predict_step(data.build(engs, hindi), try_gpu(), data.num_steps)
+    for en, fr, p in zip(engs, hindi, preds):
+        translation = []
+        for token in data.tgt_vocab.to_tokens(p):
+            if token == "<eos>":
+                break
+            translation.append(token)
+            print(
+                f"{en} => {translation}, bleu,"
+                f'{bleu(" ".join(translation), fr, k=2):.3f}'
+            )
+
+
+def att():
+    data = MTEngHin(batch_size=128)
+    embed_size, num_hiddens, num_layers, dropout = 256*4, 256*4, 2*4, 0.2
+    encoder = Seq2SeqEncoder(
+        len(data.src_vocab), embed_size, num_hiddens, num_layers, dropout
+    )
+    decoder = Seq2SeqAttentionDecoder(
+        len(data.tgt_vocab), embed_size, num_hiddens, num_layers, dropout
+    )
+    model = Seq2Seq(encoder, decoder, tgt_pad=data.tgt_vocab["<pad>"], lr=0.005)
+    trainer = Trainer(max_epochs=100, gradient_clip_val=1)
+    trainer.fit(model, data)
+
+    engs = ["I forgot.", "Let him in.", "Unbelievable!", "This is my dog."]
+    hindi = ["मैं भूल गया।", "उसे अंदर भेजो।", "अविश्वसनीय!", "यह मेरा कुत्ता है।"]
+    preds, _ = model.predict_step(data.build(engs, hindi), try_gpu(), data.num_steps)
+    for en, fr, p in zip(engs, hindi, preds):
+        translation = []
+        for token in data.tgt_vocab.to_tokens(p):
+            if token == "<eos>":
+                break
+            translation.append(token)
+            print(
+                f"{en} => {translation}, bleu,"
+                f'{bleu(" ".join(translation), fr, k=2):.3f}'
+            )
+    _, dec_attention_weights = model.predict_step(
+        data.build([engs[-1]], [hindi[-1]]), try_gpu(), data.num_steps, True
+    )
+    attention_weights = torch.cat([step[0][0][0] for step in dec_attention_weights], 0)
+    attention_weights = attention_weights.reshape((1, 1, -1, data.num_steps))
+    show_heatmaps(
+        attention_weights[:, :, :, : len(engs[-1].split()) + 1].cpu(),
+        xlabel="Key positions",
+        ylabel="Query positions",
+    )
+    return model, data

@@ -119,7 +119,7 @@ def nexa():
 
 def att():
     data = MTEngHin(batch_size=128)
-    embed_size, num_hiddens, num_layers, dropout = 256*4, 256*4, 2*4, 0.2
+    embed_size, num_hiddens, num_layers, dropout = 256 * 4, 256 * 4, 2 * 4, 0.2
     encoder = Seq2SeqEncoder(
         len(data.src_vocab), embed_size, num_hiddens, num_layers, dropout
     )
@@ -152,5 +152,47 @@ def att():
         attention_weights[:, :, :, : len(engs[-1].split()) + 1].cpu(),
         xlabel="Key positions",
         ylabel="Query positions",
+    )
+    return model, data
+
+
+def trans():
+    data = MTEngHin(batch_size=128)
+    num_hiddens, num_blks, dropout = 256, 2, 0.2
+    ffn_num_hiddens, num_heads = 64, 4
+    encoder = TransformerEncoder(
+        len(data.src_vocab), num_hiddens, ffn_num_hiddens, num_heads, num_blks, dropout
+    )
+    decoder = TransformerDecoder(
+        len(data.tgt_vocab), num_hiddens, ffn_num_hiddens, num_heads, num_blks, dropout
+    )
+    model = Seq2Seq(encoder, decoder, tgt_pad=data.tgt_vocab["<pad>"], lr=0.001)
+    trainer = Trainer(max_epochs=30, gradient_clip_val=1, num_gpus=1)
+    trainer.fit(model, data)
+    engs = ["I forgot.", "Let him in.", "Unbelievable!", "This is my dog."]
+    hindi = ["मैं भूल गया।", "उसे अंदर भेजो।", "अविश्वसनीय!", "यह मेरा कुत्ता है।"]
+    preds, _ = model.predict_step(data.build(engs, hindi), try_gpu(), data.num_steps)
+    for en, fr, p in zip(engs, hindi, preds):
+        translation = []
+        for token in data.tgt_vocab.to_tokens(p):
+            if token == "<eos>":
+                break
+            translation.append(token)
+            print(
+                f"{en} => {translation}, bleu,"
+                f'{bleu(" ".join(translation), fr, k=2):.3f}'
+            )
+    _, dec_attention_weights = model.predict_step(
+        data.build([engs[-1]], [hindi[-1]]), try_gpu(), data.num_steps, True
+    )
+    enc_attention_weights = torch.cat(model.encoder.attention_weights, 0)
+    shape = (num_blks, num_heads, -1, data.num_steps)
+    enc_attention_weights = enc_attention_weights.reshape(shape)
+    show_heatmaps(
+        enc_attention_weights.cpu(),
+        xlabel="Key positions",
+        ylabel="Query positions",
+        titles=["Head %d" % i for i in range(1, 5)],
+        figsize=(7, 3.5),
     )
     return model, data

@@ -17,8 +17,11 @@ def train():
         dropout=0.2,
     )
     devices = try_all_gpus()
+    if not devices:
+        devices = [torch.device("cpu")]
     loss = nn.CrossEntropyLoss()
     train_bert(train_iter, net, loss, len(vocab), devices, 50)
+    torch.save(net.state_dict(), "bert.pth")
 
 
 def train_bert(train_iter, net, loss, vocab_size, devices, num_steps):
@@ -79,3 +82,27 @@ def train_bert(train_iter, net, loss, vocab_size, devices, num_steps):
         f"NSP loss {metric[1] / metric[3]:.3f}"
     )
     print(f"{metric[2] / timer.sum():.1f} sentence pairs/sec on " f"{str(devices)}")
+
+
+
+def load_model():
+    batch_size, max_len = 512, 64
+    train_iter, vocab = load_data_wiki(batch_size, max_len)
+    net = BERTModel(
+        len(vocab),
+        num_hiddens=128,
+        ffn_num_hiddens=256,
+        num_heads=2,
+        num_blks=2,
+        dropout=0.2,
+    )
+    path = os.path.join(os.path.dirname(__file__), "bert.pth")
+    if torch.cuda.is_available():
+        net.load_state_dict(torch.load(path))
+    else:
+        net.load_state_dict(
+            torch.load(path, map_location=torch.device('cpu'))
+        )
+    net.eval()
+    return net, vocab
+    

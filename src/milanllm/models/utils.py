@@ -18,7 +18,7 @@ def read_imdb( is_train):
     if not os.path.exists(path):
         data = requests.get(url)
         
-        with open(f, "wb") as f:
+        with open(path, "wb") as f:
             f.write(data.content)
     fp = tarfile.open(path, 'r')
     fp.extractall(data_dir)

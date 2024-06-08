@@ -233,3 +233,20 @@ class Accumulator:
 
     def __getitem__(self, idx):
         return self.data[idx]
+    
+
+def truncate_pad(line, num_steps, padding_token):
+    """Truncate or pad sequences.
+
+    Defined in :numref:`sec_utils`"""
+    if len(line) > num_steps:
+        return line[:num_steps]  # Truncate
+    return line + [padding_token] * (num_steps - len(line))  # Pad
+
+
+def load_array(data_arrays, batch_size, is_train=True):
+    """Construct a PyTorch data iterator.
+
+    Defined in :numref:`sec_utils`"""
+    dataset = torch.utils.data.TensorDataset(*data_arrays)
+    return torch.utils.data.DataLoader(dataset, batch_size, shuffle=is_train)
